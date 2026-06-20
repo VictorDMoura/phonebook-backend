@@ -1,5 +1,7 @@
+require("dotenv").config();
 const morgan = require("morgan");
 const express = require("express");
+const Person = require("./models/person");
 const app = express();
 
 app.use(express.json());
@@ -9,13 +11,6 @@ app.use(
 app.use(express.static("dist"));
 
 morgan.token("body", (req) => JSON.stringify(req.body));
-
-let PERSONS = [
-  { id: 1, name: "Arto Hellas", number: "040-123456" },
-  { id: 2, name: "Ada Lovelace", number: "39-44-5323523" },
-  { id: 3, name: "Dan Abramov", number: "12-43-234345" },
-  { id: 4, name: "Mary Poppendieck", number: "39-23-6423122" },
-];
 
 const generateId = () => {
   return Math.floor(Math.random() * 10000);
@@ -27,22 +22,27 @@ app.listen(PORT, () => {
 });
 
 app.get("/api/persons", (req, res) => {
-  res.json(PERSONS);
+  Person.find({}).then((persons) => {
+    res.json(persons);
+  });
 });
 
-app.get("/info", (req, res) => {
+app.get("/info", async (req, res) => {
   const date = new Date();
-  const length = PERSONS.length;
-  res.send(`<p>Phonebook has info for ${length} speople</p><p>${date}</p>`);
+  const persons = await Person.find({});
+  const length = persons.length;
+  res.send(`<p>Phonebook has info for ${length} people</p><p>${date}</p>`);
 });
 
-app.get("/api/persons/:id", (req, res) => {
+app.get("/api/persons/:id", async (req, res) => {
   const id = Number(req.params.id);
-  const person = PERSONS.find((person) => person.id === id);
-  if (!person) {
+
+  const personFind = await Person.find({ id });
+  if (!personFind) {
     return res.status(404).end();
   }
-  res.json(person);
+
+  res.json(personFind);
 });
 
 app.delete("/api/persons/:id", (req, res) => {
@@ -62,21 +62,21 @@ app.post("/api/persons", (req, res) => {
     return res.status(400).json({ error: "number missing" });
   }
 
-  const nameExists = PERSONS.find(
-    (person) => person.name.toLowerCase() === body.name.toLowerCase(),
-  );
+  // const nameExists = PERSONS.find(
+  //   (person) => person.name.toLowerCase() === body.name.toLowerCase(),
+  // );
 
-  if (nameExists) {
-    return res.status(400).json({ error: "name must be unique" });
-  }
+  // if (nameExists) {
+  //   return res.status(400).json({ error: "name must be unique" });
+  // }
 
-  const person = {
+  const personToSave = new Person({
     id: generateId(),
     name: body.name,
     number: body.number,
-  };
+  });
 
-  PERSONS = PERSONS.concat(person);
-
-  res.json(person);
+  personToSave.save().then((personSaved) => {
+    res.json(personSaved);
+  });
 });
