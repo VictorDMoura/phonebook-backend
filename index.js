@@ -12,10 +12,6 @@ app.use(express.static("dist"));
 
 morgan.token("body", (req) => JSON.stringify(req.body));
 
-const generateId = () => {
-  return Math.floor(Math.random() * 10000);
-};
-
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
@@ -35,7 +31,7 @@ app.get("/info", async (req, res) => {
 });
 
 app.get("/api/persons/:id", async (req, res) => {
-  const id = Number(req.params.id);
+  const id = req.params.id;
 
   const personFind = await Person.find({ id });
   if (!personFind) {
@@ -45,13 +41,18 @@ app.get("/api/persons/:id", async (req, res) => {
   res.json(personFind);
 });
 
-app.delete("/api/persons/:id", (req, res) => {
-  const id = Number(req.params.id);
-  PERSONS = PERSONS.filter((person) => person.id !== id);
-  res.status(204).end();
+app.delete("/api/persons/:id", (req, res, next) => {
+  const id = req.params.id;
+  console.log(id);
+
+  Person.findByIdAndDelete(id)
+    .then((result) => {
+      res.status(204).end();
+    })
+    .catch((error) => next(error));
 });
 
-app.post("/api/persons", (req, res) => {
+app.post("/api/persons", (req, res, next) => {
   const body = req.body;
 
   if (!body.name) {
@@ -62,21 +63,50 @@ app.post("/api/persons", (req, res) => {
     return res.status(400).json({ error: "number missing" });
   }
 
-  // const nameExists = PERSONS.find(
-  //   (person) => person.name.toLowerCase() === body.name.toLowerCase(),
-  // );
-
-  // if (nameExists) {
-  //   return res.status(400).json({ error: "name must be unique" });
-  // }
-
   const personToSave = new Person({
-    id: generateId(),
     name: body.name,
     number: body.number,
   });
 
   personToSave.save().then((personSaved) => {
     res.json(personSaved);
+  });
+});
+
+const errorHandler = (error, request, response, next) => {
+  console.error(error.message || error);
+
+  if (error.name == "CastError") {
+    return response.status(400).send({ error: "malformatted id" });
+  }
+  next(error);
+};
+
+app.use(errorHandler);
+
+app.put("/api/persons/:id", (req, res, next) => {
+  const body = req.body;
+
+  if (!body.name) {
+    return res.status(400).json({ error: "name missing" });
+  }
+
+  if (!body.number) {
+    return res.status(400).json({ error: "number missing" });
+  }
+
+  Person.findById(req.params.id).then((person) => {
+    if (!person) {
+      return res.status(404).end();
+    }
+
+    person.name = body.name;
+    person.number = body.number;
+    return person
+      .save()
+      .then((updatedPerson) => {
+        res.json(updatedPerson);
+      })
+      .catch((error) => next(erro));
   });
 });
