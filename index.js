@@ -68,21 +68,13 @@ app.post("/api/persons", (req, res, next) => {
     number: body.number,
   });
 
-  personToSave.save().then((personSaved) => {
-    res.json(personSaved);
-  });
+  personToSave
+    .save()
+    .then((personSaved) => {
+      res.json(personSaved);
+    })
+    .catch((error) => next(error));
 });
-
-const errorHandler = (error, request, response, next) => {
-  console.error(error.message || error);
-
-  if (error.name == "CastError") {
-    return response.status(400).send({ error: "malformatted id" });
-  }
-  next(error);
-};
-
-app.use(errorHandler);
 
 app.put("/api/persons/:id", (req, res, next) => {
   const body = req.body;
@@ -110,3 +102,22 @@ app.put("/api/persons/:id", (req, res, next) => {
       .catch((error) => next(erro));
   });
 });
+
+const errorHandler = (error, request, response, next) => {
+  console.error(error.message || error);
+
+  if (error.name === "CastError") {
+    return response.status(400).send({ error: "malformatted id" });
+  } else if (error.name === "ValidationError") {
+    return response.status(400).send({ error: error.message });
+  }
+  next(error);
+};
+
+app.use(errorHandler);
+
+const unknownEndpoint = (request, resposne) => {
+  resposne.status(404).send({ error: "unknown endpoint" });
+};
+
+app.use(unknownEndpoint);
